@@ -82,6 +82,13 @@ def gaussian_rolling_average(array_like, rolling_window = 3):
     y_error = y_padded.rolling(rolling_window, center=True,win_type= 'gaussian').std(std = rolling_window)[clip:-clip]
     return y_smooth, y_error
 
+def normalise_for_plotting(myrange):
+    
+    myrange = np.array(myrange)
+    my_scaled_range = (myrange - myrange.min()) / (myrange.max() - myrange.min())
+    
+    return my_scaled_range
+
 
 # In[4]:
 
@@ -95,6 +102,34 @@ def adjust_lightness(color, amount=0.5):
         c = color
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     return colorsys.hls_to_rgb(c[0], max(0, min(1, amount * c[1])), c[2])
+
+
+def get_file_locations(dir_path):
+    
+    resultsfiles = 0
+    multiresults = 0
+    
+    results_path = None
+    multi_path = None
+    
+    for root, dirs, files in os.walk(dir_path):
+        for file in files:
+            
+            if file.endswith("Results.txt"):
+                print('Found results file: ',file) 
+                print('\t at: ', os.path.join(root, file),'\n')
+                results_path = os.path.join(root, file)
+                resultsfiles += 1
+                
+
+            if file.endswith('separation.txt'):
+                print('Found multiple exposure file: ',file)
+                print('\t at: ', os.path.join(root, file),'\n')
+                multi_path = os.path.join(root, file)
+                multiresults+= 1
+            assert resultsfiles < 2, 'Too many results files found!\n\tCheck directory path is correct and remove any extra results folders'
+            assert multiresults < 2, 'Too many multiple exposure results files found!\n\tCheck directory path is correct and remove any extra results folders'
+    return results_path, multi_path
 
 
 # # Handling raw experimental data
@@ -1447,8 +1482,8 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
         assert len(data_dicts) == len(multi_data_dicts), 'Lengths of inputs are not correct. They must be the same.'
 
     
-    cm1 = mcol.LinearSegmentedColormap.from_list("RedBlue",[colour_low_RH, colour_high_RH])
-    colours = cm1(normalise_for_plotting(rhs))
+    cm1 = colors.LinearSegmentedColormap.from_list("RedBlue",[colour_low_RH, colour_high_RH])
+    colours = cm1(normalise_for_plotting(RHs))
     
     df_key = 'settling'
     
@@ -1457,8 +1492,8 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
 
     for i, (df, rh) in enumerate(zip(data_dicts, RHs)):    
 
-        ax.plot(gaussian_rolling_average((df[df_key].Time_s), window_rolling)[0],
-                 gaussian_rolling_average(df[df_key].d_e_2_um_2, window_rolling)[0],
+        ax.plot(gaussian_rolling_average((df[df_key].Time_s), rolling_window)[0],
+                 gaussian_rolling_average(df[df_key].d_e_2_um_2, rolling_window)[0],
                  label = str(rh)+ ' % RH',
                  color = colours[i])
 
@@ -1477,8 +1512,8 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
     #plot d_a^2
     for i, (df, rh) in enumerate(zip(data_dicts, RHs)):    
 
-            ax.plot(gaussian_rolling_average((df[df_key].Time_s), window_rolling)[0],
-                     gaussian_rolling_average(df[df_key].d_e_2_um_2, window_rolling)[0],
+            ax.plot(gaussian_rolling_average((df[df_key].Time_s), rolling_window)[0],
+                     gaussian_rolling_average(df[df_key].d_e_2_um_2, rolling_window)[0],
                      label = str(rh)+ ' % RH',
                      color = colours[i])
 
@@ -1495,10 +1530,10 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
 
     fig_RH_dv_comparison, ax = plt.subplots()
 
-    for i, (df, rh) in enumerate(zip(data, rhs)):    
+    for i, (df, rh) in enumerate(zip(data_dicts, RHs)):    
 
-        ax.plot(gaussian_rolling_average((df[df_key].Time_s), window_rolling)[0],
-                 gaussian_rolling_average(df[df_key].d_a_2_um_2, window_rolling)[0],
+        ax.plot(gaussian_rolling_average((df[df_key].Time_s), rolling_window)[0],
+                 gaussian_rolling_average(df[df_key].d_a_2_um_2, rolling_window)[0],
                  label = str(rh)+ ' % RH',
                  color = colours[i])
 
@@ -1519,8 +1554,8 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
 
     for i, (df, rh) in enumerate(zip(data_dicts, RHs)):
 
-        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/df[df_key].d_e_2_um_2.head(1).values[0], window_rolling)[0],
-                 gaussian_rolling_average(df[df_key].d_e_2_um_2/df[df_key].d_e_2_um_2.head(1).values[0], window_rolling)[0],
+        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/df[df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
+                 gaussian_rolling_average(df[df_key].d_e_2_um_2/df[df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
                  label = str(rh)+ ' % RH',
                  color = colours[i])
 
@@ -1540,8 +1575,8 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
 
     for i, (df, rh) in enumerate(zip(data_dicts, RHs)):
 
-        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/df[df_key].d_a_2_um_2.head(1).values[0], window_rolling)[0],
-                 gaussian_rolling_average(df[df_key].d_a_2_um_2/df[df_key].d_a_2_um_2.head(1).values[0], window_rolling)[0],
+        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/df[df_key].d_a_2_um_2.head(1).values[0], rolling_window)[0],
+                 gaussian_rolling_average(df[df_key].d_a_2_um_2/df[df_key].d_a_2_um_2.head(1).values[0], rolling_window)[0],
                  label = str(rh)+ ' % RH',
                  color = colours[i])
 
@@ -1645,8 +1680,8 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
                                    df_dict[df_key],
                                    left_on='time', right_on='Time_s')
 
-            ax.plot(gaussian_rolling_average((df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s - df_dict[df_key].Time_s.min())/df_dict[df_key].d_a_2_um_2.head(1).values[0], window_rolling)[0],
-                     gaussian_rolling_average(df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].d_a_2_um_2/df_dict[df_key].d_a_2_um_2.head(1).values[0], window_rolling)[0],
+            ax.plot(gaussian_rolling_average((df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s - df_dict[df_key].Time_s.min())/df_dict[df_key].d_a_2_um_2.head(1).values[0], rolling_window)[0],
+                     gaussian_rolling_average(df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].d_a_2_um_2/df_dict[df_key].d_a_2_um_2.head(1).values[0], rolling_window)[0],
                      label = str(rh)+ ' % RH',
                      color = colours[i])
 
