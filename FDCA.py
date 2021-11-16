@@ -1352,21 +1352,21 @@ def generate_plots(dict_of_dfs,exp_parameters, colour = 'dodgerblue', multi_expo
             vp.set_linewidth(0.5)
             vp.set_alpha(violinalpha)
             
-    # where some data has already been plotted to ax
-    handles, labels = ax.get_legend_handles_labels()
-    # manually define a new patch 
-    patch = mpatches.Patch(color=alt_colour, alpha = violinalpha, label='Multiple Exposure d$_a^2$')
-    # handles is a list, so append manual patch
-    handles.append(patch) 
-        
-    
-    ax.legend(handles = handles)
-    
-    ax.set_ylim(0,max(multi_exposure_dict['violindata'], key=tuple).max() + 100)
-    ax.set_xlim(multi_exposure_dict['timedata'].min() - 0.05, multi_exposure_dict['timedata'].max() + 0.05)
-    ax.set_xlabel('Time / s')
-    ax.set_ylabel('Diameter Squared / µm$^2$')
-    plt.show()
+        # where some data has already been plotted to ax
+        handles, labels = ax.get_legend_handles_labels()
+        # manually define a new patch 
+        patch = mpatches.Patch(color=alt_colour, alpha = violinalpha, label='Multiple Exposure d$_a^2$')
+        # handles is a list, so append manual patch
+        handles.append(patch) 
+
+
+        ax.legend(handles = handles)
+
+        ax.set_ylim(0,max(multi_exposure_dict['violindata'], key=tuple).max() + 100)
+        ax.set_xlim(multi_exposure_dict['timedata'].min() - 0.05, multi_exposure_dict['timedata'].max() + 0.05)
+        ax.set_xlabel('Time / s')
+        ax.set_ylabel('Diameter Squared / µm$^2$')
+        plt.show()
     
     fig_density_ratio, ax = plt.subplots(figsize = figure_size)
     
