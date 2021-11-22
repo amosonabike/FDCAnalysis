@@ -1486,6 +1486,7 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
     colours = cm1(normalise_for_plotting(RHs))
     
     df_key = 'settling'
+    normalising_df_key = 'relaxation'
     
     #plot d_v^2
     fig_RH_dv_comparison, ax = plt.subplots()
@@ -1554,19 +1555,19 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
 
     for i, (df, rh) in enumerate(zip(data_dicts, RHs)):
 
-        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/df[df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
-                 gaussian_rolling_average(df[df_key].d_e_2_um_2/df[df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
+        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/df[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
+                 gaussian_rolling_average(df[df_key].d_e_2_um_2/df[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
                  label = str(rh)+ ' % RH',
                  color = colours[i])
 
-        ax.scatter((df[df_key].Time_s - df[df_key].Time_s.min())/df[df_key].d_e_2_um_2.head(1).values[0],
-                     df[df_key].d_e_2_um_2/df[df_key].d_e_2_um_2.head(1).values[0],
+        ax.scatter((df[df_key].Time_s - df[df_key].Time_s.min())/df[normalising_df_key].d_e_2_um_2.head(1).values[0],
+                     df[df_key].d_e_2_um_2/df[normalising_df_key].d_e_2_um_2.head(1).values[0],
                      color = colours[i], s = 10)
 
     ax.set_xlim(0)
     ax.set_ylim(0)
-    ax.set_xlabel('(Time / d$_0^2$) / (s  /µm$^2$ )')
-    ax.set_ylabel('d$^2$ / d$_0^2$')
+    ax.set_xlabel('(Time / d$_{v,0}^2$) / (s  /µm$^2$ )')
+    ax.set_ylabel('d$_v^2$ / d$_{v,0}^2$')
     ax.legend()
     plt.show()
 
@@ -1575,19 +1576,19 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
 
     for i, (df, rh) in enumerate(zip(data_dicts, RHs)):
 
-        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/df[df_key].d_a_2_um_2.head(1).values[0], rolling_window)[0],
-                 gaussian_rolling_average(df[df_key].d_a_2_um_2/df[df_key].d_a_2_um_2.head(1).values[0], rolling_window)[0],
+        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/df[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
+                 gaussian_rolling_average(df[df_key].d_a_2_um_2/df[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
                  label = str(rh)+ ' % RH',
                  color = colours[i])
 
-        ax.scatter((df[df_key].Time_s - df[df_key].Time_s.min())/df[df_key].d_a_2_um_2.head(1).values[0],
-                     df[df_key].d_a_2_um_2/df[df_key].d_a_2_um_2.head(1).values[0],
+        ax.scatter((df[df_key].Time_s - df[df_key].Time_s.min())/df[normalising_df_key].d_e_2_um_2.head(1).values[0],
+                     df[df_key].d_a_2_um_2/df[normalising_df_key].d_e_2_um_2.head(1).values[0],
                      color = colours[i], s = 10)
 
     ax.set_xlim(0)
     ax.set_ylim(0)
-    ax.set_xlabel('Time / s')
-    ax.set_ylabel('d$_a^2$ / µm$^2$')
+    ax.set_xlabel('(Time / d$_{a,0}^2$) / (s  /µm$^2$ )')
+    ax.set_ylabel('d$_a^2$ / d$_{v,0}^2$')
     ax.legend()
     plt.show()
     
@@ -1680,25 +1681,25 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
                                    df_dict[df_key],
                                    left_on='time', right_on='Time_s')
 
-            ax.plot(gaussian_rolling_average((df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s - df_dict[df_key].Time_s.min())/df_dict[df_key].d_a_2_um_2.head(1).values[0], rolling_window)[0],
-                     gaussian_rolling_average(df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].d_a_2_um_2/df_dict[df_key].d_a_2_um_2.head(1).values[0], rolling_window)[0],
+            ax.plot(gaussian_rolling_average((df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s - df_dict[df_key].Time_s.min())/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
+                     gaussian_rolling_average(df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].d_a_2_um_2/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
                      label = str(rh)+ ' % RH',
                      color = colours[i])
 
-            ax.scatter((df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s - df_dict[df_key].Time_s.min())/df_dict[df_key].d_a_2_um_2.head(1).values[0],
-                         df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].d_a_2_um_2/df_dict[df_key].d_a_2_um_2.head(1).values[0],
+            ax.scatter((df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s - df_dict[df_key].Time_s.min())/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
+                         df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].d_a_2_um_2/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
                          color = colours[i], s = 10)
 
 
-            ax.plot(gaussian_rolling_average((multi_exposure_dict['average'].time_s  - df_dict[df_key].Time_s.min())/df_dict[df_key].d_a_2_um_2.head(1).values[0],
+            ax.plot(gaussian_rolling_average((multi_exposure_dict['average'].time_s  - df_dict[df_key].Time_s.min())/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
                                                    rolling_window)[0],
-                    gaussian_rolling_average(multi_exposure_dict['average'].da_2/1e-12/df_dict[df_key].d_a_2_um_2.head(1).values[0],
+                    gaussian_rolling_average(multi_exposure_dict['average'].da_2/1e-12/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
                                                   rolling_window)[0],
                     color = colours[i],
                     lw = 0.5)
 
             violin_parts = ax.violinplot(np.array(multi_exposure_dict['violindata'], dtype = 'object') / float(df_dict[df_key].d_a_2_um_2.head(1).values[0]),
-                                         (multi_exposure_dict['timedata'] - df_dict[df_key].Time_s.min())/df_dict[df_key].d_a_2_um_2.head(1).values[0],
+                                         (multi_exposure_dict['timedata'] - df_dict[df_key].Time_s.min())/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
                                          widths=0.00001,
                                          showmeans = 1,
                                          showmedians = 0,)
@@ -1730,8 +1731,8 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
 
         ax.set_xlim(0)
         ax.set_ylim(0)
-        ax.set_xlabel('(Time / d$_0^2$) / (s  /µm$^2$ )')
-        ax.set_ylabel('d$^2$ / d$_0^2$')
+        ax.set_xlabel('(Time / d$_{a,0}^2$) / (s  /µm$^2$ )')
+        ax.set_ylabel('d$_a^2$ / d$_{v,0}^2$')
         ax.legend()
         plt.show()
     
