@@ -28,6 +28,9 @@ from scipy.optimize import curve_fit
 import sklearn
 from sklearn.linear_model import LinearRegression
 
+import warnings
+
+water_density = 998.29 # kg/m^3
 
 # Setting plot style
 # 
@@ -430,7 +433,7 @@ def get_relative_speed (df):
 # In[19]:
 
 
-def get_acelleration (df):
+def get_acceleration (df):
     df['relative_acceleration_mm_per_s2']  = df.relative_speed_mm_per_s.diff() / df.Time_s.diff()
     return df
 
@@ -460,15 +463,16 @@ def get_reynolds_number (df):
 
 def get_aerodynamic_diameter (df):
 
-    df['d_a_2_um_2'] =  1000000 ** 2 * ( 18 * (1.81E-5) * (df.y_velocity_corrected_mm_per_s / 1000) ) / (997 * 9.81)
-    df['d_a_2_err_um_2'] = 1000000 ** 2 * ( 18 * (1.81E-5) * (df.y_velocity_err_mm_per_s / 1000) ) / (997 * 9.81)
+    df['d_a_2_um_2'] =  1000000 ** 2 * ( 18 * (1.81E-5) * (df.y_velocity_corrected_mm_per_s / 1000) ) / (water_density * 9.81)
+    df['d_a_2_err_um_2'] = 1000000 ** 2 * ( 18 * (1.81E-5) * (df.y_velocity_err_mm_per_s / 1000) ) / (water_density * 9.81)
 
     df['d_a_um'] = np.sqrt(df.d_a_2_um_2)
     df['d_a_err_um'] = 0.5 * (1 / np.sqrt(df.d_a_2_um_2)) * df.d_a_2_err_um_2
 
     if df.d_a_2_um_2.min() < 0:
-        print( "Warning: some d_a^2 values < 0. Check gas flow values and corrected velocity")
-
+        #print( "Warning: some d_a^2 values < 0. Check gas flow values and corrected velocity")
+        pass
+    
     return df
     
 
@@ -506,17 +510,19 @@ def get_stokes_regime_data(df, stokes_threshold = 0.1):
 
 
 def get_acceleration_period(df, reynolds_threshold = 3, acceleration_threshold = 100, stokes_threshold = 0.1):
-    'Take a specified max Re_p limit and min deceleration value to select a deceleration period for calculating relaxation time. Takes the data with acceleration below specfied value as the settling regime. Returns the deceleration period data and data within the settling regime as well as the parameters that defined that range'
+    '''
+    Take a specified max Re_p limit and min deceleration value to select a deceleration period for calculating relaxation time. Takes the data with acceleration below specfied value as the settling regime. Returns the deceleration period data and data within the settling regime as well as the parameters that defined that range
+    '''
 
-    print('\nRetrieving Relaxation Period')
+    #print('\nRetrieving Relaxation Period')
     
     if reynolds_threshold == stokes_threshold:
 
-        print('\tUsing Stokes treshold: ', stokes_threshold)
+        #print('\tUsing Stokes treshold: ', stokes_threshold)
         condition = (np.abs(df.relative_acceleration_mm_per_s2) > acceleration_threshold) & (df.Re_p <= stokes_threshold) & ((df.Time_s) < 0.1)
 
     else:
-        print('\tUsing custom Reynolds treshold: ', reynolds_threshold)
+        #print('\tUsing custom Reynolds treshold: ', reynolds_threshold)
         condition = (np.abs(df.relative_acceleration_mm_per_s2) > acceleration_threshold) & (df.Re_p <= reynolds_threshold) & ((df.Time_s) < 0.1)
 
     #deceleration data selection
@@ -554,6 +560,17 @@ def relaxation_func(x, a, Tau, c):
 
 # In[26]:
 
+def relaxation_fit(time_data, speed_data, relaxation_initial_guess = [100, 0.005, -10]):
+    
+    try:
+        popt, pcov = curve_fit(relaxation_func, df.Time_s, df.relative_speed_mm_per_s, p0= relaxation_initial_guess)
+        #print('total fit: Initial amplitude = %5.3f, Tau= %5.4f, Vertical offset= %5.3f' % tuple(popt))
+   
+    except:
+        popt, pcov = np.zeros(3), np.zeros(3)
+    
+    return
+
 
 def get_relaxation_fits(df, relaxation_initial_guess = [100, 0.005, -10]):
     '''fits relative speedd (2D), x velocity and y velocity using initial guess. 
@@ -564,7 +581,7 @@ def get_relaxation_fits(df, relaxation_initial_guess = [100, 0.005, -10]):
 
         #relative speed to gas
         popt, pcov = curve_fit(relaxation_func, df.Time_s, df.relative_speed_mm_per_s, p0= relaxation_initial_guess)
-        print('total fit: Initial amplitude = %5.3f, Tau= %5.4f, Vertical offset= %5.3f' % tuple(popt))
+        #print('total fit: Initial amplitude = %5.3f, Tau= %5.4f, Vertical offset= %5.3f' % tuple(popt))
    
     except:
         popt, pcov = np.zeros(3), np.zeros(3)
@@ -572,7 +589,7 @@ def get_relaxation_fits(df, relaxation_initial_guess = [100, 0.005, -10]):
 
         # x velocity
         xpopt, xpcov = curve_fit(relaxation_func, df.Time_s, df.x_velocity_mm_per_s, p0= relaxation_initial_guess)
-        print('x fit: Initial amplitude = %5.3f, Tau= %5.4f, Vertical offset= %5.3f' % tuple(xpopt))
+        #print('x fit: Initial amplitude = %5.3f, Tau= %5.4f, Vertical offset= %5.3f' % tuple(xpopt))
 
     except:
         xpopt, xpcov = np.zeros(3), np.zeros(3)
@@ -580,7 +597,7 @@ def get_relaxation_fits(df, relaxation_initial_guess = [100, 0.005, -10]):
 
         # y velocity
         ypopt, ypcov = curve_fit(relaxation_func, df.Time_s, df.y_velocity_corrected_mm_per_s, p0= relaxation_initial_guess , maxfev = 5000)
-        print('y fit: Initial amplitude = %5.3f, Tau= %5.4f, Vertical offset= %5.3f' % tuple(ypopt))
+        #print('y fit: Initial amplitude = %5.3f, Tau= %5.4f, Vertical offset= %5.3f' % tuple(ypopt))
     
     except:
         ypopt, ypcov = np.zeros(3), np.zeros(3)
@@ -617,8 +634,8 @@ def get_corrected_settling_velocity (df, gas_flow_rate = 0, gas_flow_correction_
 
     #ignores early lifetime scattered data, looks for values below 0 as this translates into nagtive d_a^2
     if df.loc[df.Time_s > 0.1].y_velocity_corrected_mm_per_s.min() < 0:
-        print('\nWarning: Min velocity is less than 0, check value of gas flow! \n\tMin value = ', df.y_velocity_corrected_mm_per_s.min())
-    
+        #print('\nWarning: Min velocity is less than 0, check value of gas flow! \n\tMin value = ', df.y_velocity_corrected_mm_per_s.min())
+        pass
     return df
 
 
@@ -626,13 +643,29 @@ def get_corrected_settling_velocity (df, gas_flow_rate = 0, gas_flow_correction_
 
 # In[28]:
 
+def get_density(df, d_0, rho_0 = water_density):
+    
+    measured_volume = (1/6) * np.pi * (df.d_e_um_mean.head(1).values[0] * 1e-6) ** 3
+    predicted_initial_volume = (1/6) * np.pi * (d_0 * 1e-6) ** 3
+    
+    volume_change = measured_volume - predicted_initial_volume
+    mass_change = water_density * volume_change
+    
+    predicted_inital_mass = rho_0 * predicted_initial_volume
+    
+    mass_at_measurement = predicted_inital_mass + mass_change
+    
+    density_at_measurement = mass_at_measurement/measured_volume
 
-def get_gas_flow_correction_factor (df, gas_flow_experimental_value = 0, particle_density = 997, early_lifetime_threshold = 0.05):
+    return density_at_measurement
+
+def get_gas_flow_correction_factor (df, gas_flow_experimental_value = 0, particle_density = water_density, early_lifetime_threshold = 0.05):
     
-    
-    '''Receives settling regime data (or other if preferred) Takes early lifetime date from settling regime, but while evaporation may be assumed negligible.
+    '''
+    Receives settling regime data (or other if preferred) Takes early lifetime date from settling regime, but while evaporation may be assumed negligible.
     Iterates while the ratio (da^2 * rho_water) / (de^2 * rho_solution) is far from 1
-    Returns gas flow corrrection factor and calculated actual experimental gas flow in column'''
+    Returns gas flow corrrection factor and calculated actual experimental gas flow in column
+    '''
     
     df_density_check = df.loc[df.Time_s <= early_lifetime_threshold].copy()
     
@@ -647,20 +680,25 @@ def get_gas_flow_correction_factor (df, gas_flow_experimental_value = 0, particl
     gas_flow_corection_factor = 1
 
     #this ratio should be 1 for a system with no error in gas flow
-    diameter_density_ratio = (df_density_check.d_e_2_um_2.mean() * 997) / (df_density_check.d_a_2_um_2.mean() * particle_density)
+    diameter_density_ratio = (df_density_check.d_a_2_um_2.mean() * water_density) / (df_density_check.d_e_2_um_2.mean() * particle_density)
     print('Starting density ratio (da^2 * rho_water) / (de^2 * rho_solution): ', diameter_density_ratio)
 
     while np.abs(diameter_density_ratio - 1) > 0.001:
 
-        diameter_density_ratio = (df_density_check.d_a_2_um_2.mean() * 997) / (df_density_check.d_e_2_um_2.mean() * particle_density)
+        diameter_density_ratio = (df_density_check.d_a_2_um_2.mean() * water_density) / (df_density_check.d_e_2_um_2.mean() * particle_density)
 
         #make a small change to the correction factor based upon the current difference
         correction_change =  np.sign(diameter_density_ratio - 1) * 0.001
         gas_flow_corection_factor = gas_flow_corection_factor + correction_change
 
         #recalculate aerodynamic data based on correction factor
-        df_density_check = get_corrected_settling_velocity(df_density_check, gas_flow_rate=gas_flow_experimental_value, gas_flow_correction_factor = gas_flow_corection_factor)
+        df_density_check = get_corrected_settling_velocity(df_density_check,
+                                                           gas_flow_rate=gas_flow_experimental_value,
+                                                           gas_flow_correction_factor = gas_flow_corection_factor)
+        
         df_density_check = get_aerodynamic_diameter(df_density_check)
+        
+        
         
         print('\r', 'Gas flow correction factor = ', gas_flow_corection_factor, end='')
         
@@ -685,49 +723,94 @@ def get_gas_flow_correction_factor (df, gas_flow_experimental_value = 0, particl
 
 
 
-def get_line_fit(x_series, y_series, r_sq_threshold = 0.99):
-    'Takes series, specified from df. eg time series and diameter^2 data. Returns: fit_intercept, fit_evaporation_rate, r_sqared, fitted_window (t_min, t_max).'
+def get_line_fit(df, gradient_threshold = -5, rolling_window = 5, proportion_cutoff = 0.9, show_plots = False):
+    '''
+    Takes a dataframe, ususually settling regime data and
+    Returns: fit_intercept, fit_evaporation_rate, r_sqared, fitted_window (t_min, t_max).
+    '''
 
+    df_evaporation = df.loc[df.d_e_2_um_2.diff().rolling(rolling_window, center = True).mean() < gradient_threshold]
+
+    
     # define model to use
-    line_fit = LinearRegression(fit_intercept=True)  
+    line_fit = LinearRegression(fit_intercept=True)
     
-    #starting r^2 value of something small
-    r_sq = 0
+    # fits to selected d^2 value 
+    model = line_fit.fit(df_evaporation[['Time_s']], df_evaporation.d_e_2_um_2) 
+    d2_pred_init = line_fit.predict(df_evaporation[['Time_s']])
+    r_sq_init = model.score(df_evaporation[['Time_s']], df_evaporation.d_e_2_um_2)
     
-    while r_sq < r_sq_threshold:
+    
+    df_fit_range = df.loc[df.Time_s < proportion_cutoff * df_evaporation.Time_s.max()]
+    
+    # fits to selected d^2 value 
+    model = line_fit.fit(df_fit_range[['Time_s']], df_fit_range.d_e_2_um_2) 
+    d2_pred = line_fit.predict(df_fit_range[['Time_s']])
+    r_sq = model.score(df_fit_range[['Time_s']], df_fit_range.d_e_2_um_2)
+    
+    if show_plots == True:
 
-        x_data = np.array(x_series).reshape(-1, 1)
-        y_data = np.array(y_series).reshape(-1, 1)
+        plt.scatter(df.Time_s,
+                    df.d_e_2_um_2.diff(),
+                    s = 50, color = 'k',
+                    label = 'All data')
+        plt.plot(df.Time_s.rolling(rolling_window, center = True).mean(),
+                 df.d_e_2_um_2.diff().rolling(rolling_window, center = True).mean(),
+                 color = 'k', linewidth = 3,
+                 label = 'All data rolling average')
+        plt.scatter(df_evaporation.Time_s,
+                    df_evaporation.d_e_2_um_2.diff(),
+                    s = 20, color = 'r', label = "Data within threshold")
 
-        # fits to selected d^2 value 
-        model = line_fit.fit(x_data, y_data)  
+        plt.axhline( color = 'k', linewidth = 0.5)
+        plt.axhline(gradient_threshold,
+                    color = 'k',
+                    linestyle = '--',
+                    label = 'Gradient Cut Off')
+
+        plt.ylabel('- Evaporation Rate / µm$^2$s$^{-1}$')
+        plt.xlabel('Time / s')
+        plt.legend()
+        plt.show()
+
+        plt.scatter(df.Time_s,
+                    df.d_e_2_um_2,
+                    s = 50, color = 'k',
+                    label = 'All data')
+        plt.scatter(df_evaporation.Time_s,
+                    df_evaporation.d_e_2_um_2,
+                    s = 20, color = 'r',
+                    label = 'Below threshold')
 
 
-        d2_pred = line_fit.predict(x_data)
-        r_sq = model.score(x_data, y_data)
-
-        if r_sq < r_sq_threshold:
-
-
-            n = 1
-            x_series = x_series.drop(x_series.tail(n).index,inplace=False) # drop last n rows
-            y_series = y_series.drop(y_series.tail(n).index,inplace=False) # drop last n rows
+        plt.axvspan(df_fit_range.Time_s.min(),
+                    df_fit_range.Time_s.max(),
+                    color = 'magenta', alpha = 0.1, zorder = 0,
+                    label = 'Fitted period')
 
 
-        else:
-            print('good fit')
-            plt.scatter(x_series,y_series)
-            plt.plot(x_data, d2_pred, linestyle=':')
-            plt.show()
-            
-            print(f'Fitted intial size / µm\t\t\t{round(np.sqrt(model.intercept_[0]),3)}\nCalculated eavporation rate / µm^2/s\t{round(-model.coef_[0][0],3)}\nR squared\t\t\t\t{round(r_sq,3)}')
+        plt.plot(df_fit_range.Time_s,
+                 d2_pred,
+                 color = 'k', linewidth = 3, zorder = 0,
+                 label = 'Linear fit')
 
-            fit_params = dict(intercept = model.intercept_[0],
-                              gradient = model.coef_[0][0],
-                              r_sq = r_sq,
-                              t_min = x_series.min(),
-                              t_max = x_series.max())
-            
+        plt.scatter(0, 
+                    model.intercept_,
+                    color = 'r', marker = 'x', s = 75,
+                    label = 'Predicited d$_{v,0}^2$')
+
+        plt.ylabel('d$_v^2$ / µm$^2$')
+        plt.xlabel('Time / s')
+        plt.legend()
+        plt.show()
+
+        print(f'Fitted intial size / µm\t\t\t{round(np.sqrt(model.intercept_),3)}\nCalculated eavporation rate / µm^2/s\t{round(-model.coef_[0],3)}\nR squared\t\t\t\t{round(r_sq,3)}')
+
+    fit_params = dict(intercept = model.intercept_,
+                      gradient = model.coef_[0],
+                      r_sq = r_sq,
+                      t_min = df_fit_range.Time_s.min(),
+                      t_max = df_fit_range.Time_s.max())
     return fit_params
 
 
@@ -775,8 +858,14 @@ def import_clean_data(df_import, chosen_z_score_threshold = 3):
 
 # In[31]:
 
+def density_check(da2, de2, rho_solution, rho_water = water_density):
+    '''
+    This is basically the shape factor, it should be 1 for a spherical particle.
+    '''
+    return (da2 * rho_water)/(de2 * rho_solution)
 
-def gas_flow_dependent_calculations(df_average, gas_flow_correction = 1, gas_flow_experimental_value = 0):
+
+def gas_flow_dependent_calculations(df_average, gas_flow_correction = 1, gas_flow_experimental_value = 0, reynolds_threshold = 3, acceleration_threshold = 100, stokes_threshold = 0.1):
     
 
     #calculate particle settling velocity
@@ -786,7 +875,7 @@ def gas_flow_dependent_calculations(df_average, gas_flow_correction = 1, gas_flo
     df_average = get_relative_speed(df_average)
 
     #calculate acceleration
-    df_average = get_acelleration(df_average)
+    df_average = get_acceleration(df_average)
 
     #calculate reynolds number
     df_average = get_reynolds_number(df_average)
@@ -798,36 +887,52 @@ def gas_flow_dependent_calculations(df_average, gas_flow_correction = 1, gas_flo
     df_average = get_density_ratio(df_average)
 
     #find stokes regime
-    df_stokes, df_not_stokes, stokes_threshold = get_stokes_regime_data(df_average)
+    df_stokes, df_not_stokes, stokes_threshold = get_stokes_regime_data(df_average, stokes_threshold)
 
     #find deceleration period and settling regime
-    df_deceleration_period, df_settling_regime, reynolds_threshold, aceleration_threshold = get_acceleration_period(df_average)
+    df_deceleration_period, df_settling_regime, reynolds_threshold, acceleration_threshold = get_acceleration_period(df_average, reynolds_threshold, acceleration_threshold, stokes_threshold)
     
     #perform fits for relaxation period
     fits_parameters = get_relaxation_fits(df_deceleration_period)
     
-    return df_average, df_stokes, df_not_stokes, stokes_threshold, df_deceleration_period, df_settling_regime, reynolds_threshold, aceleration_threshold, gas_flow_experimental_value, fits_parameters
+    regime_data = dict(stokes = df_stokes,
+                     not_stokes = df_not_stokes,
+                     relaxation = df_deceleration_period,
+                     settling = df_settling_regime,
+                     all = df_average)
+    
+    thresholds = dict(stokes = stokes_threshold,
+                      reynolds = reynolds_threshold,
+                      acceleration = acceleration_threshold)
+    
+    return regime_data, thresholds, gas_flow_experimental_value, fits_parameters
 
 
 # In[32]:
 
 
-def run_all_analysis(filepath, z_score_threshold = 3, gas_flow_rate = 0, sample_density =997):
+#def run_all_analysis(filepath, z_score_threshold = 3, gas_flow_rate = 0, sample_density = water_density):
     '''docstring here'''
     
-    #get data from file
+    '''#get data from file
     df_import = pd.read_csv(filepath, delimiter='\t', header=0)
     
     #clean data and reduce to only useful columns
     df_pre_clean, df_clean, df_average, z_score_threshold = import_clean_data(df_import,1)
+        
+    df_average, df_stokes, df_not_stokes, stokes_threshold, df_deceleration_period, df_settling_regime, reynolds_threshold, acceleration_threshold, gas_flow_experimental_value, relaxation_fit_parameters = gas_flow_dependent_calculations(df_average,1 , gas_flow_rate)
     
-    df_average, df_stokes, df_not_stokes, stokes_threshold, df_deceleration_period, df_settling_regime, reynolds_threshold, aceleration_threshold, gas_flow_experimental_value, relaxation_fit_parameters = gas_flow_dependent_calculations(df_average,1 , gas_flow_rate)
+    #perform linear fit to settling regime data
+    linear_fit_params = get_line_fit(df_settling_regime, show_plots = True)
 
     #plot_cleaned_data (df_average, df_pre_clean, df_clean, z_score_threshold)
         
     if gas_flow_rate > 0:
+        
+        calculated_density = get_density(df_settling_regime, linear_fit_params['intercept'], sample_density)
+        
         #calculate gas flow correction factor
-        gas_flow_correcction_factor, corrected_gas_flow = get_gas_flow_correction_factor(df_settling_regime, gas_flow_rate,particle_density= sample_density)
+        gas_flow_correcction_factor, corrected_gas_flow = get_gas_flow_correction_factor(df_settling_regime, gas_flow_rate,particle_density= calculated_density)
     
     else:
         gas_flow_correcction_factor = 1
@@ -835,16 +940,11 @@ def run_all_analysis(filepath, z_score_threshold = 3, gas_flow_rate = 0, sample_
     
     actual_gas_flow_rate = gas_flow_correcction_factor * gas_flow_rate
     
-    df_average, df_stokes, df_not_stokes, stokes_threshold, df_deceleration_period, df_settling_regime, reynolds_threshold, aceleration_threshold, gas_flow_experimental_value, relaxation_fit_parameters = gas_flow_dependent_calculations(df_average, gas_flow_correcction_factor, gas_flow_experimental_value=gas_flow_rate)
+    df_average, df_stokes, df_not_stokes, stokes_threshold, df_deceleration_period, df_settling_regime, reynolds_threshold, acceleration_threshold, gas_flow_experimental_value, relaxation_fit_parameters = gas_flow_dependent_calculations(df_average, gas_flow_correcction_factor, gas_flow_experimental_value=gas_flow_rate)
 
-    #plot_trajectory(df_average, df_stokes, df_not_stokes, df_deceleration_period, df_settling_regime, reynolds_threshold, stokes_threshold, 0,1,1,1,1)
-    
-    #plot_relaxation(df_deceleration_period, fits_parameters)
-    
-    #plot_da_de_comparison (df_average, df_stokes, df_not_stokes, df_deceleration_period, df_settling_regime, reynolds_threshold, stokes_threshold)
 
     #perform linear fit to settling regime data
-    linear_fit_params = get_line_fit(df_settling_regime.Time_s, df_settling_regime.d_e_2_um_2)
+    linear_fit_params = get_line_fit(df_settling_regime)
 
     
     data_dict = dict(stokes = df_stokes,
@@ -862,7 +962,92 @@ def run_all_analysis(filepath, z_score_threshold = 3, gas_flow_rate = 0, sample_
                            LinearFit = linear_fit_params,
                            RelaxationFits = relaxation_fit_parameters)
     
-    return  parameters_dict, data_dict
+    return  parameters_dict, data_dict'''
+
+def correct_gas_flow(df, gas_flow, sample_density, early_lifetime_threshold = 0.05):
+    
+    regimes, thresholds, gas_flow_exp, relaxation_fits = gas_flow_dependent_calculations(df, gas_flow_experimental_value= gas_flow)
+    
+    linear_fit_params = get_line_fit(regimes['settling'])
+    
+    calculated_density = get_density(regimes['settling'], np.sqrt(linear_fit_params['intercept']), sample_density)
+
+    df_early_data = regimes['settling'].loc[regimes['settling'].Time_s <= early_lifetime_threshold].copy()
+    
+    if df_early_data.empty == True:
+        
+        print ('No settling regime data within first 0.05 s. Using first settling regime datapoint only\n', f'Datapoint time = ', regimes['settling'].Time_s.iloc[0])
+        df_early_data = regimes['settling'].head(1).copy()    
+    
+    density_check_value = density_check(df_early_data.d_a_2_um_2.mean(), df_early_data.d_e_2_um_2.mean(), calculated_density)
+    
+    #initialise facotor as 1, meaning no error in gas flow
+    gas_flow_corection_factor = 1
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', r'invalid value encountered in sqrt')
+        warnings.filterwarnings('ignore', r'overflow encountered in exp')
+        
+        while np.abs(1 - density_check_value) > 0.001:
+            #1
+            #make a small change to the correction factor based upon the current difference
+            correction_change =  np.sign(density_check_value - 1) * 0.1 * np.abs(density_check_value - 1)
+            gas_flow_corection_factor = gas_flow_corection_factor + correction_change
+            #2
+            linear_fit_params = get_line_fit(regimes['settling'])
+            calculated_density = get_density(regimes['settling'], np.sqrt(linear_fit_params['intercept']), sample_density)
+            #3
+            regimes, thresholds, gas_flow_input, relaxation_fits = gas_flow_dependent_calculations(df, gas_flow_corection_factor, gas_flow_experimental_value= gas_flow)
+            #4
+            df_early_data = regimes['settling'].loc[regimes['settling'].Time_s <= early_lifetime_threshold].copy()
+
+            if df_early_data.empty == True:
+                df_early_data = regimes['settling'].head(1).copy() 
+
+            density_check_value = density_check(df_early_data.d_a_2_um_2.mean(), df_early_data.d_e_2_um_2.mean(), calculated_density)
+            print('\rCorrecting gas flow, 1 - density_check_value = ' + str(round(density_check_value,3)) + ' Corrected gas flow = ' + str(round(gas_flow_corection_factor*gas_flow, 3)) + ' test ' + str(round(calculated_density, 4)),end='')
+  
+
+    regimes, thresholds, gas_flow_input, relaxation_fits = gas_flow_dependent_calculations(df, gas_flow_corection_factor, gas_flow_experimental_value= gas_flow)
+    
+    '''data_dict = dict(stokes = df_stokes,
+                     not_stokes = df_not_stokes,
+                     relaxation = df_deceleration_period,
+                     settling = df_settling_regime,
+                     all = df_average)'''
+    
+    linear_fit_params = get_line_fit(regimes['settling'], show_plots = True)
+    calculated_density = get_density(regimes['settling'], np.sqrt(linear_fit_params['intercept']), sample_density)
+    
+    return  regimes, thresholds, gas_flow_corection_factor* gas_flow, relaxation_fit, linear_fit_params, calculated_density
+
+def run_all_analysis(filepath, z_score_threshold = 3, gas_flow_rate = 0, sample_density = water_density):
+    '''docstring here'''
+    
+    #get data from file
+    df_import = pd.read_csv(filepath, delimiter='\t', header=0)
+    
+    #clean data and reduce to only useful columns
+    df_pre_clean, df_clean, df_average, z_score_threshold = import_clean_data(df_import,1)
+       
+    if gas_flow_rate > 0:
+        
+        regime_data, regime_thresholds, gas_flow_experimental_value, relaxation_fit_params, linear_fit_params, calculated_density = correct_gas_flow(df_average, gas_flow_rate, sample_density)
+    
+    else:
+        regime_data, regime_thresholds, gas_flow_experimental_value, relaxation_fit_params = gas_flow_dependent_calculations(df, gas_flow_corection_factor, gas_flow_experimental_value= gas_flow)
+        linear_fit_params = get_line_fit(regime_data['settling'])
+        calculated_density = get_density(regime_data['settling'], np.sqrt(linear_fit_params['intercept']), sample_density)
+
+    
+    parameters_dict = dict(SampleDensity = sample_density,
+                           NominalGasFlow = gas_flow_rate,
+                           CalculatedGasFlow = gas_flow_experimental_value,
+                           Thresholds = regime_thresholds,
+                           LinearFit = linear_fit_params,
+                           RelaxationFits = relaxation_fit_params)
+    
+    return  parameters_dict, regime_data
     
 
 
@@ -904,8 +1089,8 @@ def do_calculations(df, delta_time, flow_speed):
     df.velocity_ms = df.displacement_m.copy()/delta_time - flow_speed/(60000000 * (0.02 ** 2))
     df.velocity_ms_err = np.sqrt(2 * (2e-6 *df.pixel_size_um.values) ** 2) / delta_time
 
-    df.da_2 = ( 18 * (1.81E-5) * (df.velocity_ms.values) ) / (997 * 9.81)
-    df.da_2_err = ( 18 * (1.81E-5) * (df.velocity_ms_err.values) ) / (997 * 9.81)
+    df.da_2 = ( 18 * (1.81E-5) * (df.velocity_ms.values) ) / (water_density * 9.81)
+    df.da_2_err = ( 18 * (1.81E-5) * (df.velocity_ms_err.values) ) / (water_density * 9.81)
 
     df.da = np.sqrt(df.da_2.values)
     df.da_err = 0.5 * (1 / np.sqrt(df.da_2.values)) * df.da_2_err.values
@@ -1027,7 +1212,7 @@ def get_multiple_exposure_data(path, flow, z_thresh = 3, iqr_thresh = 1.5, mod_t
 # In[43]:
 
 
-def generate_plots(dict_of_dfs,exp_parameters, colour = 'dodgerblue', multi_exposure_dict = None, rolling_window = 3):
+def generate_plots(dict_of_dfs, exp_parameters, colour = 'dodgerblue', multi_exposure_dict = None, rolling_window = 3):
 
     
     #get colourmap and norm 
@@ -1091,7 +1276,7 @@ def generate_plots(dict_of_dfs,exp_parameters, colour = 'dodgerblue', multi_expo
     
     # Plot Relaxation Period
     df_key = 'relaxation'
-    Re_thresh = exp_parameters['ReynoldsTreshold']
+    Re_thresh = exp_parameters['Thresholds']['reynolds']
     ax.scatter(dict_of_dfs[df_key].x_position_mm_mean,
                dict_of_dfs[df_key].y_position_mm_mean,
                c = 'r', s = 5 * markersize, label = f'Deceleration period Re_p < {Re_thresh}')     
@@ -1434,7 +1619,71 @@ def generate_plots(dict_of_dfs,exp_parameters, colour = 'dodgerblue', multi_expo
         ax.set_ylabel('d$_a^2$ / d$_e^2$')
         plt.show()
         
+    fig_density, ax = plt.subplots(figsize = figure_size)
+    
+    # plot density ratio 
+    df_key = 'settling'
+    
+
+    ax.plot(gaussian_rolling_average(dict_of_dfs[df_key].Time_s, rolling_window)[0],
+            water_density * gaussian_rolling_average(dict_of_dfs[df_key].density_ratio, rolling_window)[0],
+            color = mid_colour)
+    
+    ax.errorbar(dict_of_dfs[df_key].Time_s,
+                water_density * dict_of_dfs[df_key].density_ratio,
+                water_density * dict_of_dfs[df_key].density_ratio_err,
+                color = mid_colour,
+                ms = markersize,
+                fmt = 'h',
+                elinewidth=ebarthickness,
+                capsize=ecapsize, 
+                capthick=ebarthickness,
+                )
+    
+    ax.axhline(1, linewidth = 0.5, color = 'k')
+    
+    ax.set_ylim(0)
+    ax.set_xlabel('Time / s')
+    ax.set_ylabel(r'($\rho$ / $\chi$) / kgm$^{-3}$')
+    plt.show()
+    
+    if multi_exposure_dict == None:
+        pass
+
+    else:
+        fig_multi_density_ratio, ax = plt.subplots(figsize = figure_size)
+
+        # plot density ratio 
+        df_key = 'settling'
+
+
+        ax.plot(gaussian_rolling_average(dict_of_dfs[df_key].loc[dict_of_dfs[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s, rolling_window)[0],
+                water_density * gaussian_rolling_average(dict_of_dfs[df_key].loc[dict_of_dfs[df_key].Time_s < multi_exposure_dict['timedata'].min()].density_ratio, rolling_window)[0],
+                color = mid_colour)
+
+        ax.errorbar(dict_of_dfs[df_key].loc[dict_of_dfs[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s,
+                    water_density * dict_of_dfs[df_key].loc[dict_of_dfs[df_key].Time_s < multi_exposure_dict['timedata'].min()].density_ratio,
+                    water_density * dict_of_dfs[df_key].loc[dict_of_dfs[df_key].Time_s < multi_exposure_dict['timedata'].min()].density_ratio_err,
+                    color = mid_colour,
+                    ms = markersize,
+                    fmt = 'h',
+                    elinewidth=ebarthickness,
+                    capsize=ecapsize, 
+                    capthick=ebarthickness,)
         
+        
+        ax.plot(gaussian_rolling_average(multi_exposure_dict['average'].time_s, rolling_window)[0],
+                water_density * gaussian_rolling_average((multi_exposure_dict['average'].da_2/1e-12)/df_multi_period.d_e_2_um_2, rolling_window)[0],
+                color = mid_colour)
+        
+        
+
+        ax.axhline(1, linewidth = 0.5, color = 'k')
+
+        ax.set_ylim(0)
+        ax.set_xlabel('Time / s')
+        ax.set_ylabel(r'($\rho$ / $\chi$) / kgm$^{-3}$')
+        plt.show()     
         
         
     # plot evaporation rate
@@ -1698,7 +1947,7 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
                     color = colours[i],
                     lw = 0.5)
 
-            violin_parts = ax.violinplot(np.array(multi_exposure_dict['violindata'], dtype = 'object') / float(df_dict[df_key].d_a_2_um_2.head(1).values[0]),
+            violin_parts = ax.violinplot(np.array(multi_exposure_dict['violindata'], dtype = 'object') / float(df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0]),
                                          (multi_exposure_dict['timedata'] - df_dict[df_key].Time_s.min())/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
                                          widths=0.00001,
                                          showmeans = 1,
