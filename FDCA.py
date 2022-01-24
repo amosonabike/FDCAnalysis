@@ -1019,7 +1019,7 @@ def correct_gas_flow(df, gas_flow, sample_density, early_lifetime_threshold = 0.
     linear_fit_params = get_line_fit(regimes['settling'], show_plots = True)
     calculated_density = get_density(regimes['settling'], np.sqrt(linear_fit_params['intercept']), sample_density)
     
-    return  regimes, thresholds, gas_flow_corection_factor* gas_flow, relaxation_fit, linear_fit_params, calculated_density
+    return  regimes, thresholds, gas_flow_corection_factor* gas_flow, relaxation_fits, linear_fit_params, calculated_density
 
 def run_all_analysis(filepath, z_score_threshold = 3, gas_flow_rate = 0, sample_density = water_density):
     '''docstring here'''
@@ -1045,7 +1045,8 @@ def run_all_analysis(filepath, z_score_threshold = 3, gas_flow_rate = 0, sample_
                            CalculatedGasFlow = gas_flow_experimental_value,
                            Thresholds = regime_thresholds,
                            LinearFit = linear_fit_params,
-                           RelaxationFits = relaxation_fit_params)
+                           RelaxationFits = relaxation_fit_params,
+                           d_a02 =linear_fit_params['intercept'] * sample_density/water_density )
     
     return  parameters_dict, regime_data
     
@@ -1711,8 +1712,12 @@ def generate_plots(dict_of_dfs, exp_parameters, colour = 'dodgerblue', multi_exp
     
     return
 
+def get_da2_from_dv2(dv2, particle_density, water_density):
+#Da2 = de2.pp/pw
+    return 
 
-def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window = 3, colour_low_RH = 'red', colour_high_RH = 'blue'):
+
+def plot_RH_comparison(data_dicts, RHs, parameters_list, multi_data_dicts = None, rolling_window = 3, colour_low_RH = 'red', colour_high_RH = 'blue'):
     '''
     For plotting results of experiements over a range of RH values.
     
@@ -1724,6 +1729,11 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
           
           returns nothing, shows plots.
     '''
+    
+    markersize = 10
+    ebarthickness = 1.5
+    ecapsize = 5
+    violinalpha = 0.6
     
     assert len(data_dicts) == len(RHs), 'Lengths of inputs are not correct. They must be the same.'
     
@@ -1802,19 +1812,20 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
     #plot d_v^2 normalised
     fig_RH_dv_comparison_normalised, ax = plt.subplots()
 
-    for i, (df, rh) in enumerate(zip(data_dicts, RHs)):
-
-        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/df[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
-                 gaussian_rolling_average(df[df_key].d_e_2_um_2/df[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
+    for i, (df, rh, params) in enumerate(zip(data_dicts, RHs, parameters_list)):
+        d_v02 = params['LinearFit']['intercept']
+        
+        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/d_v02, rolling_window)[0],
+                gaussian_rolling_average(df[df_key].d_e_2_um_2/d_v02, rolling_window)[0],
                  label = str(rh)+ ' % RH',
                  color = colours[i])
 
-        ax.scatter((df[df_key].Time_s - df[df_key].Time_s.min())/df[normalising_df_key].d_e_2_um_2.head(1).values[0],
-                     df[df_key].d_e_2_um_2/df[normalising_df_key].d_e_2_um_2.head(1).values[0],
+        ax.scatter((df[df_key].Time_s - df[df_key].Time_s.min())/d_v02,
+                     df[df_key].d_e_2_um_2/d_v02,
                      color = colours[i], s = 10)
 
     ax.set_xlim(0)
-    ax.set_ylim(0)
+    ax.set_ylim(0,1)
     ax.set_xlabel('(Time / d$_{v,0}^2$) / (s  /µm$^2$ )')
     ax.set_ylabel('d$_v^2$ / d$_{v,0}^2$')
     ax.legend()
@@ -1823,21 +1834,21 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
     #plot d_a^2 normalised
     fig_RH_da_comparison_normalised, ax = plt.subplots()
 
-    for i, (df, rh) in enumerate(zip(data_dicts, RHs)):
-
-        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/df[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
-                 gaussian_rolling_average(df[df_key].d_a_2_um_2/df[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
+    for i, (df, rh, params) in enumerate(zip(data_dicts, RHs, parameters_list)):
+        d_a02 = params['d_a02']
+        ax.plot(gaussian_rolling_average((df[df_key].Time_s - df[df_key].Time_s.min())/d_a02, rolling_window)[0],
+                 gaussian_rolling_average(df[df_key].d_a_2_um_2/d_a02, rolling_window)[0],
                  label = str(rh)+ ' % RH',
                  color = colours[i])
 
-        ax.scatter((df[df_key].Time_s - df[df_key].Time_s.min())/df[normalising_df_key].d_e_2_um_2.head(1).values[0],
-                     df[df_key].d_a_2_um_2/df[normalising_df_key].d_e_2_um_2.head(1).values[0],
+        ax.scatter((df[df_key].Time_s - df[df_key].Time_s.min())/d_a02,
+                     df[df_key].d_a_2_um_2/d_a02,
                      color = colours[i], s = 10)
 
     ax.set_xlim(0)
-    ax.set_ylim(0)
+    ax.set_ylim(0,1)
     ax.set_xlabel('(Time / d$_{a,0}^2$) / (s  /µm$^2$ )')
-    ax.set_ylabel('d$_a^2$ / d$_{v,0}^2$')
+    ax.set_ylabel('d$_a^2$ / d$_{a,0}^2$')
     ax.legend()
     plt.show()
     
@@ -1865,8 +1876,8 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
                     color = colours[i])
             
             df_multi_period = pd.merge(pd.DataFrame(multi_exposure_dict['timedata'],columns = ['time']),
-                                   df_dict[df_key],
-                                   left_on='time', right_on='Time_s')
+                                       df_dict[df_key],
+                                       left_on='time', right_on='Time_s')
 
 
             ax.plot(gaussian_rolling_average(multi_exposure_dict['average'].time_s, rolling_window)[0],
@@ -1922,33 +1933,34 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
         
         fig_multi_diameter_sq, ax = plt.subplots()
         
-        for i, (df_dict, rh, multi_exposure_dict) in enumerate(zip(data_dicts, RHs, multi_data_dicts)):
+        for i, (df_dict, rh, multi_exposure_dict, params) in enumerate(zip(data_dicts, RHs, multi_data_dicts, parameters_list)):
             
+            d_a02 = params['d_a02']    
             
             
             df_multi_period = pd.merge(pd.DataFrame(multi_exposure_dict['timedata'],columns = ['time']),
                                    df_dict[df_key],
                                    left_on='time', right_on='Time_s')
 
-            ax.plot(gaussian_rolling_average((df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s - df_dict[df_key].Time_s.min())/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
-                     gaussian_rolling_average(df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].d_a_2_um_2/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0], rolling_window)[0],
+            ax.plot(gaussian_rolling_average((df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s - df_dict[df_key].Time_s.min())/d_a02, rolling_window)[0],
+                     gaussian_rolling_average(df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].d_a_2_um_2/d_a02, rolling_window)[0],
                      label = str(rh)+ ' % RH',
                      color = colours[i])
 
-            ax.scatter((df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s - df_dict[df_key].Time_s.min())/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
-                         df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].d_a_2_um_2/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
+            ax.scatter((df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s - df_dict[df_key].Time_s.min())/d_a02,
+                         df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].d_a_2_um_2/d_a02,
                          color = colours[i], s = 10)
 
 
-            ax.plot(gaussian_rolling_average((multi_exposure_dict['average'].time_s  - df_dict[df_key].Time_s.min())/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
+            ax.plot(gaussian_rolling_average((multi_exposure_dict['average'].time_s  - df_dict[df_key].Time_s.min())/d_a02,
                                                    rolling_window)[0],
-                    gaussian_rolling_average(multi_exposure_dict['average'].da_2/1e-12/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
+                    gaussian_rolling_average(multi_exposure_dict['average'].da_2/1e-12/d_a02,
                                                   rolling_window)[0],
                     color = colours[i],
                     lw = 0.5)
 
-            violin_parts = ax.violinplot(np.array(multi_exposure_dict['violindata'], dtype = 'object') / float(df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0]),
-                                         (multi_exposure_dict['timedata'] - df_dict[df_key].Time_s.min())/df_dict[normalising_df_key].d_e_2_um_2.head(1).values[0],
+            violin_parts = ax.violinplot(np.array(multi_exposure_dict['violindata'], dtype = 'object') / float(d_a02),
+                                         (multi_exposure_dict['timedata'] - df_dict[df_key].Time_s.min())/d_a02,
                                          widths=0.00001,
                                          showmeans = 1,
                                          showmedians = 0,)
@@ -1979,11 +1991,87 @@ def plot_RH_comparison(data_dicts, RHs, multi_data_dicts = None, rolling_window 
         ax.legend(handles = handles)
 
         ax.set_xlim(0)
-        ax.set_ylim(0)
+        ax.set_ylim(0,1)
         ax.set_xlabel('(Time / d$_{a,0}^2$) / (s  /µm$^2$ )')
-        ax.set_ylabel('d$_a^2$ / d$_{v,0}^2$')
+        ax.set_ylabel('d$_a^2$ / d$_{a,0}^2$')
         ax.legend()
         plt.show()
-    
+        
+    #plotting multiple exposure data
+    if multi_data_dicts == None:
+        pass
+
+    else:
+        fig_multi_density_ratio, ax = plt.subplots(figsize = figure_size)
+        
+        # plot density ratio 
+        df_key = 'settling'
+
+        for i, (df_dict, rh, multi_exposure_dict, params) in enumerate(zip(data_dicts, RHs, multi_data_dicts, parameters_list)):
+
+            ax.plot(gaussian_rolling_average(df_dict[df_key].Time_s, rolling_window)[0],
+                    water_density * gaussian_rolling_average(df_dict[df_key].density_ratio, rolling_window)[0],
+                    color = colours[i])
+
+            ax.errorbar(df_dict[df_key].Time_s,
+                        water_density * df_dict[df_key].density_ratio,
+                        water_density * df_dict[df_key].density_ratio_err,
+                        color = colours[i],
+                        ms = markersize,
+                        fmt = 'h',
+                        elinewidth=ebarthickness,
+                        capsize=ecapsize, 
+                        capthick=ebarthickness,
+                        )
+
+        ax.axhline(water_density, linewidth = 0.5, color = 'k')
+
+        ax.set_ylim(0)
+        ax.set_xlabel('Time / s')
+        ax.set_ylabel(r'($\rho$ / $\chi$) / kgm$^{-3}$')
+        plt.show()
+        
+    #plotting multiple exposure data
+    if multi_data_dicts == None:
+        pass
+
+    else:
+        fig_multi_density_ratio, ax = plt.subplots(figsize = figure_size)
+        
+        # plot density ratio 
+        df_key = 'settling'
+
+        for i, (df_dict, rh, multi_exposure_dict, params) in enumerate(zip(data_dicts, RHs, multi_data_dicts, parameters_list)):
+            
+            df_multi_period = pd.merge(pd.DataFrame(multi_exposure_dict['timedata'],columns = ['time']),
+                                   df_dict['settling'],
+                                   left_on='time', right_on='Time_s')
+            
+            ax.plot(gaussian_rolling_average(df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s, rolling_window)[0],
+                water_density * gaussian_rolling_average(df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].density_ratio, rolling_window)[0],
+                color = colours[i])
+
+            ax.errorbar(df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].Time_s,
+                        water_density * df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].density_ratio,
+                        water_density * df_dict[df_key].loc[df_dict[df_key].Time_s < multi_exposure_dict['timedata'].min()].density_ratio_err,
+                        color = colours[i],
+                        ms = markersize,
+                        fmt = 'h',
+                        elinewidth=ebarthickness,
+                        capsize=ecapsize, 
+                        capthick=ebarthickness,)
+
+
+            ax.plot(gaussian_rolling_average(multi_exposure_dict['average'].time_s, rolling_window)[0],
+                    water_density * gaussian_rolling_average((multi_exposure_dict['average'].da_2/1e-12)/df_multi_period.d_e_2_um_2, rolling_window)[0],
+                    color = colours[i])
+
+        ax.axhline(water_density, linewidth = 0.5, color = 'k')
+
+        ax.set_ylim(0)
+        ax.set_xlabel('Time / s')
+        ax.set_ylabel(r'($\rho$ / $\chi$) / kgm$^{-3}$')
+        plt.show()
+
     return
 
